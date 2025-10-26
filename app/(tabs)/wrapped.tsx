@@ -191,14 +191,7 @@ export default function WrappedScreen() {
           icon="forward.fill"
           title="Skip Rate"
           value={`${metrics.skipRate}%`}
-          subtitle={`${metrics.totalSkips} skips total`}
-          description="How often you hit the skip button"
-        />
-        <PatternCard
-          icon="forward.end.fill"
-          title="Early Skips"
-          value={`${metrics.earlySkips}`}
-          subtitle="Instant skips"
+          subtitle={`${metrics.totalSkips} early skips (< 10s)`}
           description="Songs you skipped within the first 10 seconds"
         />
       </View>

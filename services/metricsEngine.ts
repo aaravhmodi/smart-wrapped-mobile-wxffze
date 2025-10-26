@@ -140,8 +140,9 @@ export const metricsEngine = {
     );
 
     // Behavioral Metrics (from actual listen data)
-    const totalSkips = trackListens.filter(listen => listen.wasSkipped).length;
-    const earlySkips = trackListens.filter(listen => listen.wasEarlySkip).length;
+    // Only count early skips (< 10 seconds) as real "skips"
+    const totalSkips = trackListens.filter(listen => listen.wasEarlySkip).length;
+    const earlySkips = totalSkips; // Same as totalSkips now
     const skipRate = trackListens.length > 0 
       ? Math.round((totalSkips / trackListens.length) * 100)
       : 0;
@@ -150,7 +151,7 @@ export const metricsEngine = {
       ? Math.round(trackListens.reduce((sum, listen) => sum + listen.completionRate, 0) / trackListens.length)
       : 0;
 
-    console.log(`[Metrics] Skip analysis: ${totalSkips} skips, ${earlySkips} early skips (< 10s)`);
+    console.log(`[Metrics] Skip analysis: ${totalSkips} early skips (< 10s) out of ${trackListens.length} plays`);
 
     // Analyze tracks for recommendations
     const trackAnalysis: { [trackId: string]: {
