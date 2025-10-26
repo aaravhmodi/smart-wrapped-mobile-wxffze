@@ -31,6 +31,8 @@ export default function WrappedDashboard() {
   const [stats, setStats] = useState<ListeningStats | null>(null);
   const [insights, setInsights] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [timeRange, setTimeRange] = useState<'30' | '180'>('30'); // 30 days or 180 days (6 months)
+  const [listeningMinutes, setListeningMinutes] = useState<number>(0);
 
   // Fetch user data when authenticated
   useEffect(() => {
@@ -38,6 +40,32 @@ export default function WrappedDashboard() {
       fetchUserData();
     }
   }, [isAuthenticated, accessToken, authLoading]);
+
+  // Fetch listening minutes when time range changes
+  useEffect(() => {
+    if (isAuthenticated && accessToken && !authLoading) {
+      fetchListeningMinutes();
+    }
+  }, [timeRange, isAuthenticated, accessToken, authLoading]);
+
+  const fetchListeningMinutes = async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token || !refreshToken) return;
+
+      const tokens: SpotifyTokens = {
+        accessToken: token,
+        refreshToken: refreshToken,
+        expiresAt: Date.now() + 3600000,
+      };
+
+      const days = parseInt(timeRange);
+      const minutes = await spotifyApi.getListeningTime(tokens, days);
+      setListeningMinutes(minutes);
+    } catch (error) {
+      console.error('Error fetching listening minutes:', error);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -217,11 +245,32 @@ export default function WrappedDashboard() {
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Listening Stats</Text>
+            
+            {/* Time Range Selector */}
+            <View style={styles.timeRangeContainer}>
+              <TouchableOpacity
+                style={[styles.timeRangeButton, timeRange === '30' && styles.timeRangeButtonActive]}
+                onPress={() => setTimeRange('30')}
+              >
+                <Text style={[styles.timeRangeText, timeRange === '30' && styles.timeRangeTextActive]}>
+                  Last 30 Days
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.timeRangeButton, timeRange === '180' && styles.timeRangeButtonActive]}
+                onPress={() => setTimeRange('180')}
+              >
+                <Text style={[styles.timeRangeText, timeRange === '180' && styles.timeRangeTextActive]}>
+                  Last 6 Months
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.statsGrid}>
               <StatCard
                 icon="clock.fill"
-                value={`${stats.totalListeningTime}`}
-                label="Minutes Listened"
+                value={`${listeningMinutes}`}
+                label={`Minutes (${timeRange === '30' ? '30 days' : '6 months'})`}
                 color={colors.primary}
               />
               <StatCard
@@ -461,6 +510,32 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
+  },
+  timeRangeContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+    gap: 8,
+  },
+  timeRangeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  timeRangeButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  timeRangeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  timeRangeTextActive: {
+    color: colors.text,
   },
   clearSessionButton: {
     padding: 8,

@@ -125,9 +125,14 @@ export const spotifyApi = {
   },
 
   // Get recently played tracks
-  async getRecentlyPlayed(tokens: SpotifyTokens, limit: number = 50) {
+  async getRecentlyPlayed(tokens: SpotifyTokens, limit: number = 50, after?: number) {
     try {
-      const response = await fetch(`${BASE_URL}/me/player/recently-played?limit=${limit}`, {
+      let url = `${BASE_URL}/me/player/recently-played?limit=${limit}`;
+      if (after) {
+        url += `&after=${after}`;
+      }
+      
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${tokens.accessToken}`,
         },
@@ -136,7 +141,7 @@ export const spotifyApi = {
       if (response.status === 401) {
         console.log('Token expired, refreshing...');
         const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
-        return this.getRecentlyPlayed(newTokens, limit);
+        return this.getRecentlyPlayed(newTokens, limit, after);
       }
 
       if (!response.ok) {
@@ -149,6 +154,36 @@ export const spotifyApi = {
     } catch (error) {
       console.error('Error fetching recently played:', error);
       throw error;
+    }
+  },
+
+  // Get listening time for a specific period
+  async getListeningTime(tokens: SpotifyTokens, daysBack: number = 30): Promise<number> {
+    try {
+      const after = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
+      let totalMinutes = 0;
+      let allTracks: any[] = [];
+      
+      // Fetch recently played tracks (Spotify API limits to last 50 tracks)
+      const data = await this.getRecentlyPlayed(tokens, 50, after);
+      
+      if (data && data.items) {
+        allTracks = data.items;
+        
+        // Calculate total listening time
+        allTracks.forEach((item: any) => {
+          const playedAt = new Date(item.played_at).getTime();
+          if (playedAt >= after) {
+            totalMinutes += item.track.duration_ms / 1000 / 60;
+          }
+        });
+      }
+      
+      console.log(`[Spotify API] Listening time for last ${daysBack} days: ${Math.round(totalMinutes)} minutes`);
+      return Math.round(totalMinutes);
+    } catch (error) {
+      console.error('Error calculating listening time:', error);
+      return 0;
     }
   },
 };
