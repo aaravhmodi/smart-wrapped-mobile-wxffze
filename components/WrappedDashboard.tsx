@@ -135,7 +135,6 @@ export default function WrappedDashboard() {
           </View>
 
           <Text style={styles.noteText}>
-            Note: This is a demo app. To use real Spotify data, you need to configure your Spotify API credentials in the code.
           </Text>
         </View>
       </LinearGradient>

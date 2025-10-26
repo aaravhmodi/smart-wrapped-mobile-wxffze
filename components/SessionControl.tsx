@@ -57,7 +57,7 @@ export default function SessionControl() {
           <View style={styles.stats}>
             <StatBadge icon="music.note" value={session.tracks.length} label="Tracks" />
             <StatBadge 
-              icon="timer" as any
+              icon="timer"
               value={Math.round(session.totalDuration)} 
               label="Minutes" 
             />
