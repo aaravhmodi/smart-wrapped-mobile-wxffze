@@ -266,11 +266,15 @@ export default function WrappedDashboard() {
               </TouchableOpacity>
             </View>
 
+            <Text style={styles.statsNote}>
+              📊 Estimated listening time based on your top tracks and recent activity
+            </Text>
+            
             <View style={styles.statsGrid}>
               <StatCard
                 icon="clock.fill"
-                value={`${listeningMinutes}`}
-                label={`Minutes (${timeRange === '30' ? '30 days' : '6 months'})`}
+                value={`~${listeningMinutes}`}
+                label={`Minutes (${timeRange === '30' ? 'Last 30 days' : 'Last 6 months'})`}
                 color={colors.primary}
               />
               <StatCard
@@ -536,6 +540,13 @@ const styles = StyleSheet.create({
   },
   timeRangeTextActive: {
     color: colors.text,
+  },
+  statsNote: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   clearSessionButton: {
     padding: 8,

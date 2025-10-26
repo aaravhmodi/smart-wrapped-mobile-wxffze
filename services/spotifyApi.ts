@@ -160,18 +160,19 @@ export const spotifyApi = {
   // Get listening time for a specific period
   async getListeningTime(tokens: SpotifyTokens, daysBack: number = 30): Promise<number> {
     try {
-      const after = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
+      // Use Spotify's time ranges: short_term (4 weeks), medium_term (6 months)
+      const timeRange = daysBack <= 30 ? 'short_term' : 'medium_term';
+      
+      // Fetch top tracks for the time period
+      const topTracksData = await this.getTopTracks(tokens, timeRange);
+      const recentData = await this.getRecentlyPlayed(tokens, 50);
+      
       let totalMinutes = 0;
-      let allTracks: any[] = [];
       
-      // Fetch recently played tracks (Spotify API limits to last 50 tracks)
-      const data = await this.getRecentlyPlayed(tokens, 50, after);
-      
-      if (data && data.items) {
-        allTracks = data.items;
-        
-        // Calculate total listening time
-        allTracks.forEach((item: any) => {
+      // Calculate from recently played (more accurate for recent activity)
+      if (recentData && recentData.items) {
+        const after = Date.now() - (daysBack * 24 * 60 * 60 * 1000);
+        recentData.items.forEach((item: any) => {
           const playedAt = new Date(item.played_at).getTime();
           if (playedAt >= after) {
             totalMinutes += item.track.duration_ms / 1000 / 60;
@@ -179,8 +180,20 @@ export const spotifyApi = {
         });
       }
       
-      console.log(`[Spotify API] Listening time for last ${daysBack} days: ${Math.round(totalMinutes)} minutes`);
-      return Math.round(totalMinutes);
+      // Estimate additional listening time from top tracks
+      // Top tracks indicate frequent plays - estimate plays based on position
+      if (topTracksData && topTracksData.items) {
+        const estimatedPlays = daysBack <= 30 ? 2 : 5; // Conservative estimate
+        topTracksData.items.forEach((track: any, index: number) => {
+          // Weight by position (top tracks played more)
+          const multiplier = Math.max(1, (50 - index) / 50) * estimatedPlays;
+          totalMinutes += (track.duration_ms / 1000 / 60) * multiplier;
+        });
+      }
+      
+      const rounded = Math.round(totalMinutes);
+      console.log(`[Spotify API] Estimated listening time for last ${daysBack} days (${timeRange}): ${rounded} minutes`);
+      return rounded;
     } catch (error) {
       console.error('Error calculating listening time:', error);
       return 0;
