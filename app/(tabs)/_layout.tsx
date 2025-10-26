@@ -16,6 +16,12 @@ export default function TabLayout() {
       label: 'Home',
     },
     {
+      name: 'wrapped',
+      route: '/(tabs)/wrapped',
+      icon: 'chart.bar.fill',
+      label: 'Wrapped',
+    },
+    {
       name: 'profile',
       route: '/(tabs)/profile',
       icon: 'person.fill',
@@ -30,6 +36,10 @@ export default function TabLayout() {
         <NativeTabs.Trigger name="(home)">
           <Icon sf="house.fill" drawable="ic_home" />
           <Label>Home</Label>
+        </NativeTabs.Trigger>
+        <NativeTabs.Trigger name="wrapped">
+          <Icon sf="chart.bar.fill" drawable="ic_chart" />
+          <Label>Wrapped</Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="profile">
           <Icon sf="person.fill" drawable="ic_profile" />
@@ -49,6 +59,7 @@ export default function TabLayout() {
         }}
       >
         <Stack.Screen name="(home)" />
+        <Stack.Screen name="wrapped" />
         <Stack.Screen name="profile" />
       </Stack>
       <FloatingTabBar tabs={tabs} />

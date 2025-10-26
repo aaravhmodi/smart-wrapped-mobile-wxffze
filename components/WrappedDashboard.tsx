@@ -12,46 +12,49 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
-import { spotifyAuth } from '@/services/spotifyAuth';
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useListeningSession } from '@/hooks/useListeningSession';
 import { spotifyApi } from '@/services/spotifyApi';
 import { insightsEngine } from '@/services/insightsEngine';
 import { SpotifyTokens, SpotifyUser, ListeningStats } from '@/types/spotify';
 import { IconSymbol } from './IconSymbol';
+import SessionControl from './SessionControl';
 
 const { width } = Dimensions.get('window');
 
 export default function WrappedDashboard() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const { isAuthenticated, isLoading: authLoading, login, logout, accessToken, refreshToken, getAccessToken } = useSpotifyAuth();
+  const { session, getSessionStats, clearSession } = useListeningSession();
+  
+  const [loading, setLoading] = useState(false);
   const [user, setUser] = useState<SpotifyUser | null>(null);
   const [stats, setStats] = useState<ListeningStats | null>(null);
   const [insights, setInsights] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
 
+  // Fetch user data when authenticated
   useEffect(() => {
-    checkLoginStatus();
-  }, []);
-
-  const checkLoginStatus = async () => {
-    try {
-      const tokens = await spotifyAuth.getTokens();
-      if (tokens && !spotifyAuth.isTokenExpired(tokens)) {
-        setIsLoggedIn(true);
-        await fetchUserData(tokens);
-      } else {
-        setIsLoggedIn(false);
-      }
-    } catch (error) {
-      console.error('Error checking login status:', error);
-      setIsLoggedIn(false);
-    } finally {
-      setLoading(false);
+    if (isAuthenticated && accessToken && !authLoading) {
+      fetchUserData();
     }
-  };
+  }, [isAuthenticated, accessToken, authLoading]);
 
-  const fetchUserData = async (tokens: SpotifyTokens) => {
+  const fetchUserData = async () => {
     try {
       setLoading(true);
+      
+      // Get valid access token (will refresh if needed)
+      const token = await getAccessToken();
+      if (!token || !refreshToken) {
+        console.error('No valid token available');
+        return;
+      }
+
+      const tokens: SpotifyTokens = {
+        accessToken: token,
+        refreshToken: refreshToken,
+        expiresAt: Date.now() + 3600000, // Default 1 hour
+      };
       
       // Fetch user profile
       const userData = await spotifyApi.getCurrentUser(tokens);
@@ -80,23 +83,15 @@ export default function WrappedDashboard() {
 
   const handleLogin = async () => {
     try {
-      setLoading(true);
-      await spotifyAuth.login();
-      // After login, the callback will be handled by deep linking
-      // For demo purposes, we'll simulate a successful login
-      setTimeout(() => {
-        checkLoginStatus();
-      }, 2000);
+      await login();
     } catch (error) {
       console.error('Error during login:', error);
-      setLoading(false);
     }
   };
 
   const handleLogout = async () => {
     try {
-      await spotifyAuth.clearTokens();
-      setIsLoggedIn(false);
+      await logout();
       setUser(null);
       setStats(null);
       setInsights([]);
@@ -106,7 +101,7 @@ export default function WrappedDashboard() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -115,7 +110,7 @@ export default function WrappedDashboard() {
     );
   }
 
-  if (!isLoggedIn) {
+  if (!isAuthenticated) {
     return (
       <LinearGradient
         colors={[colors.background, colors.secondary, colors.background]}
@@ -166,6 +161,58 @@ export default function WrappedDashboard() {
           </TouchableOpacity>
         </View>
       </LinearGradient>
+
+      {/* Session Control */}
+      <SessionControl />
+
+      {/* Session Stats - Show when there's a completed session */}
+      {!session.isActive && session.tracks.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>📊 Your Session Stats</Text>
+            <TouchableOpacity onPress={clearSession} style={styles.clearSessionButton}>
+              <IconSymbol name="trash" size={20} color="#ff6b6b" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.statsGrid}>
+            <StatCard
+              icon="clock.fill"
+              value={`${getSessionStats().duration}`}
+              label="Session Duration (min)"
+              color={colors.primary}
+            />
+            <StatCard
+              icon="music.note.list"
+              value={`${getSessionStats().trackCount}`}
+              label="Tracks Played"
+              color={colors.accent}
+            />
+            <StatCard
+              icon="person.2.fill"
+              value={`${getSessionStats().uniqueArtists}`}
+              label="Unique Artists"
+              color={colors.primary}
+            />
+            <StatCard
+              icon="waveform"
+              value={`${getSessionStats().totalListeningTime}`}
+              label="Total Minutes"
+              color={colors.accent}
+            />
+          </View>
+
+          {/* Show session tracks */}
+          <Text style={styles.subsectionTitle}>Tracks from this session:</Text>
+          {session.tracks.slice(0, 10).map((track, index) => (
+            <TrackItem key={`${track.id}-${index}`} track={track} rank={index + 1} />
+          ))}
+          {session.tracks.length > 10 && (
+            <Text style={styles.moreTracksText}>
+              + {session.tracks.length - 10} more tracks
+            </Text>
+          )}
+        </View>
+      )}
 
       {stats && (
         <>
@@ -236,14 +283,14 @@ export default function WrappedDashboard() {
 
 const FeatureItem = ({ icon, text }: { icon: string; text: string }) => (
   <View style={styles.featureItem}>
-    <IconSymbol name={icon} size={24} color={colors.primary} />
+    <IconSymbol name={icon as any} size={24} color={colors.primary} />
     <Text style={styles.featureText}>{text}</Text>
   </View>
 );
 
 const StatCard = ({ icon, value, label, color }: { icon: string; value: string; label: string; color: string }) => (
   <View style={styles.statCard}>
-    <IconSymbol name={icon} size={32} color={color} />
+    <IconSymbol name={icon as any} size={32} color={color} />
     <Text style={styles.statValue}>{value}</Text>
     <Text style={styles.statLabel}>{label}</Text>
   </View>
@@ -404,11 +451,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 24,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   sectionTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 16,
+  },
+  clearSessionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+  },
+  subsectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  moreTracksText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 12,
+    fontStyle: 'italic',
   },
   statsGrid: {
     flexDirection: 'row',

@@ -6,7 +6,7 @@ export const spotifyConfig = {
   clientId: process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID || '4098bcdb0b324483aceb93a29c6e6a96',
   clientSecret: process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET || '497632c5463d41f68f94a67d649f7f30',
   redirectUri: process.env.EXPO_PUBLIC_REDIRECT_URI || 'https://spotifywrapped.xo.je/callback.php',
-  frontendUrl: process.env.EXPO_PUBLIC_FRONTEND_URL || 'https://your-app-name.vercel.app',
+  frontendUrl: typeof window !== 'undefined' ? window.location.origin : (process.env.EXPO_PUBLIC_FRONTEND_URL || 'http://localhost:8081'),
   backendUrl: process.env.EXPO_PUBLIC_BACKEND_URL || 'https://spotifywrapped.xo.je',
   apiBase: process.env.EXPO_PUBLIC_SPOTIFY_API_BASE || 'https://api.spotify.com/v1',
   scopes: [
