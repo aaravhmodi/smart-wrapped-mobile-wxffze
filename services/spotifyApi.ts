@@ -1,8 +1,9 @@
 
 import { SpotifyTokens, SpotifyUser, TopTracksResponse, TopArtistsResponse } from '@/types/spotify';
 import { spotifyAuth } from './spotifyAuth';
+import { spotifyConfig } from '@/config/spotify';
 
-const BASE_URL = 'https://api.spotify.com/v1';
+const BASE_URL = spotifyConfig.apiBase;
 
 export const spotifyApi = {
   // Get current user profile
@@ -16,6 +17,7 @@ export const spotifyApi = {
 
       if (response.status === 401) {
         // Token expired, refresh it
+        console.log('Token expired, refreshing...');
         const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
         return this.getCurrentUser(newTokens);
       }
@@ -25,7 +27,7 @@ export const spotifyApi = {
       }
 
       const data = await response.json();
-      console.log('User data fetched:', data);
+      console.log('User data fetched:', data.display_name);
       return data;
     } catch (error) {
       console.error('Error fetching current user:', error);
@@ -43,6 +45,7 @@ export const spotifyApi = {
       });
 
       if (response.status === 401) {
+        console.log('Token expired, refreshing...');
         const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
         return this.getTopTracks(newTokens, timeRange);
       }
@@ -70,6 +73,7 @@ export const spotifyApi = {
       });
 
       if (response.status === 401) {
+        console.log('Token expired, refreshing...');
         const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
         return this.getTopArtists(newTokens, timeRange);
       }
@@ -97,11 +101,13 @@ export const spotifyApi = {
       });
 
       if (response.status === 401) {
+        console.log('Token expired, refreshing...');
         const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
         return this.getCurrentlyPlaying(newTokens);
       }
 
       if (response.status === 204) {
+        console.log('No track currently playing');
         return null; // Nothing playing
       }
 
@@ -110,10 +116,38 @@ export const spotifyApi = {
       }
 
       const data = await response.json();
-      console.log('Currently playing:', data);
+      console.log('Currently playing:', data.item?.name || 'Unknown');
       return data;
     } catch (error) {
       console.error('Error fetching currently playing:', error);
+      throw error;
+    }
+  },
+
+  // Get recently played tracks
+  async getRecentlyPlayed(tokens: SpotifyTokens, limit: number = 50) {
+    try {
+      const response = await fetch(`${BASE_URL}/me/player/recently-played?limit=${limit}`, {
+        headers: {
+          Authorization: `Bearer ${tokens.accessToken}`,
+        },
+      });
+
+      if (response.status === 401) {
+        console.log('Token expired, refreshing...');
+        const newTokens = await spotifyAuth.refreshAccessToken(tokens.refreshToken);
+        return this.getRecentlyPlayed(newTokens, limit);
+      }
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch recently played: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Recently played tracks fetched:', data.items.length);
+      return data;
+    } catch (error) {
+      console.error('Error fetching recently played:', error);
       throw error;
     }
   },

@@ -3,20 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { SpotifyTokens } from '@/types/spotify';
+import { spotifyConfig } from '@/config/spotify';
 
 const STORAGE_KEY = '@spotify_tokens';
-
-// Replace these with your actual Spotify app credentials
-const CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID';
-const REDIRECT_URI = Linking.createURL('callback');
-const SCOPES = [
-  'user-read-private',
-  'user-read-email',
-  'user-top-read',
-  'user-read-recently-played',
-  'user-read-playback-state',
-  'user-read-currently-playing',
-].join(' ');
 
 export const spotifyAuth = {
   // Store tokens securely
@@ -65,16 +54,34 @@ export const spotifyAuth = {
   // Initiate Spotify OAuth login
   async login(): Promise<void> {
     try {
-      const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=code&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}`;
+      const scopes = spotifyConfig.scopes.join(' ');
+      const authUrl = `https://accounts.spotify.com/authorize?client_id=${spotifyConfig.clientId}&response_type=code&redirect_uri=${encodeURIComponent(spotifyConfig.redirectUri)}&scope=${encodeURIComponent(scopes)}&show_dialog=true`;
       
-      console.log('Opening Spotify auth URL:', authUrl);
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
+      console.log('Opening Spotify auth URL');
+      console.log('Client ID:', spotifyConfig.clientId.substring(0, 8) + '...');
+      console.log('Redirect URI:', spotifyConfig.redirectUri);
+      
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, spotifyConfig.redirectUri);
       
       if (result.type === 'success') {
         console.log('Auth session successful:', result.url);
-        // The callback will be handled by the deep link listener
+        // Extract the authorization code from the URL
+        const url = new URL(result.url);
+        const code = url.searchParams.get('code');
+        
+        if (code) {
+          console.log('Authorization code received, exchanging for tokens...');
+          await this.exchangeCodeForTokens(code);
+        } else {
+          console.error('No authorization code in callback URL');
+          throw new Error('No authorization code received');
+        }
+      } else if (result.type === 'cancel') {
+        console.log('Auth session cancelled by user');
+        throw new Error('Authentication cancelled');
       } else {
-        console.log('Auth session cancelled or failed:', result);
+        console.log('Auth session failed:', result);
+        throw new Error('Authentication failed');
       }
     } catch (error) {
       console.error('Error during login:', error);
@@ -82,54 +89,73 @@ export const spotifyAuth = {
     }
   },
 
-  // Handle the callback from Spotify (to be called from your backend)
-  async handleCallback(code: string): Promise<SpotifyTokens> {
+  // Exchange authorization code for tokens via your PHP backend
+  async exchangeCodeForTokens(code: string): Promise<SpotifyTokens> {
     try {
-      // In a real app, you would call your PHP backend here
-      // For now, this is a placeholder
-      console.log('Handling callback with code:', code);
+      console.log('Exchanging code for tokens via backend:', spotifyConfig.backendUrl);
       
-      // Example: Call your backend
-      // const response = await fetch('https://your-backend.com/callback.php', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
-      // });
-      // const data = await response.json();
+      const response = await fetch(`${spotifyConfig.backendUrl}/callback.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code,
+          redirect_uri: spotifyConfig.redirectUri,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Backend error:', errorText);
+        throw new Error(`Failed to exchange code: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Tokens received from backend');
       
-      // For demo purposes, return mock tokens
       const tokens: SpotifyTokens = {
-        accessToken: 'mock_access_token',
-        refreshToken: 'mock_refresh_token',
-        expiresAt: Date.now() + 3600 * 1000, // 1 hour from now
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresAt: Date.now() + (data.expires_in * 1000),
       };
       
       await this.storeTokens(tokens);
       return tokens;
     } catch (error) {
-      console.error('Error handling callback:', error);
+      console.error('Error exchanging code for tokens:', error);
       throw error;
     }
   },
 
-  // Refresh access token
+  // Refresh access token via your PHP backend
   async refreshAccessToken(refreshToken: string): Promise<SpotifyTokens> {
     try {
-      console.log('Refreshing access token');
+      console.log('Refreshing access token via backend');
       
-      // In a real app, you would call your PHP backend here
-      // const response = await fetch('https://your-backend.com/refresh.php', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ refresh_token: refreshToken }),
-      // });
-      // const data = await response.json();
+      const response = await fetch(`${spotifyConfig.backendUrl}/refresh.php`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refresh_token: refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Backend error:', errorText);
+        throw new Error(`Failed to refresh token: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('New access token received');
       
-      // For demo purposes, return mock tokens
       const tokens: SpotifyTokens = {
-        accessToken: 'mock_refreshed_access_token',
-        refreshToken: refreshToken,
-        expiresAt: Date.now() + 3600 * 1000,
+        accessToken: data.access_token,
+        refreshToken: refreshToken, // Keep the same refresh token
+        expiresAt: Date.now() + (data.expires_in * 1000),
       };
       
       await this.storeTokens(tokens);
