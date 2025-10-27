@@ -102,6 +102,7 @@ export function useHybridAuth() {
       // Try Supabase OAuth first
       try {
         console.log('[Hybrid Auth] Attempting Supabase OAuth...');
+        console.log('[Hybrid Auth] Redirect URL:', supabaseConfig.redirectUrl);
         
         const { data, error } = await supabase.auth.signInWithOAuth({
           provider: 'spotify',
@@ -113,13 +114,16 @@ export function useHybridAuth() {
 
         if (error) {
           console.log('[Hybrid Auth] Supabase OAuth failed:', error.message);
+          console.log('[Hybrid Auth] Full error:', error);
           throw error;
         }
 
         console.log('[Hybrid Auth] Supabase OAuth initiated successfully');
+        console.log('[Hybrid Auth] OAuth data:', data);
         return; // Supabase will handle the redirect
       } catch (supabaseError) {
         console.log('[Hybrid Auth] Supabase failed, falling back to PHP auth');
+        console.log('[Hybrid Auth] Supabase error details:', supabaseError);
         
         // Fallback to PHP auth
         await phpAuth.login();
