@@ -58,24 +58,9 @@ export function useHybridAuth() {
 
   const initializeAuth = async () => {
     try {
-      // Try Supabase first
-      console.log('[Hybrid Auth] Checking Supabase session...');
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // Use PHP auth for now (Supabase not configured yet)
+      console.log('[Hybrid Auth] Using PHP auth only');
       
-      if (session && !error) {
-        console.log('[Hybrid Auth] Supabase session found');
-        setAuthState({
-          accessToken: session.access_token,
-          refreshToken: session.refresh_token,
-          isAuthenticated: true,
-          isLoading: false,
-          authMethod: 'supabase',
-        });
-        return;
-      }
-
-      // Fallback to PHP auth
-      console.log('[Hybrid Auth] No Supabase session, trying PHP auth');
       if (phpAuth.isAuthenticated && phpAuth.accessToken) {
         setAuthState({
           accessToken: phpAuth.accessToken,
@@ -99,35 +84,10 @@ export function useHybridAuth() {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
-      // Try Supabase OAuth first
-      try {
-        console.log('[Hybrid Auth] Attempting Supabase OAuth...');
-        console.log('[Hybrid Auth] Redirect URL:', supabaseConfig.redirectUrl);
-        
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'spotify',
-          options: {
-            redirectTo: supabaseConfig.redirectUrl,
-            scopes: 'user-read-private user-read-email user-top-read user-read-recently-played user-read-playback-state user-read-currently-playing user-library-read playlist-read-private playlist-read-collaborative',
-          },
-        });
-
-        if (error) {
-          console.log('[Hybrid Auth] Supabase OAuth failed:', error.message);
-          console.log('[Hybrid Auth] Full error:', error);
-          throw error;
-        }
-
-        console.log('[Hybrid Auth] Supabase OAuth initiated successfully');
-        console.log('[Hybrid Auth] OAuth data:', data);
-        return; // Supabase will handle the redirect
-      } catch (supabaseError) {
-        console.log('[Hybrid Auth] Supabase failed, falling back to PHP auth');
-        console.log('[Hybrid Auth] Supabase error details:', supabaseError);
-        
-        // Fallback to PHP auth
-        await phpAuth.login();
-      }
+      // Use PHP auth for now (Supabase not configured yet)
+      console.log('[Hybrid Auth] Using PHP auth (Supabase not configured)');
+      await phpAuth.login();
+      
     } catch (error) {
       console.error('[Hybrid Auth] Login failed:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
