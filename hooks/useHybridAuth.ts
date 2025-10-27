@@ -27,6 +27,33 @@ export function useHybridAuth() {
 
   useEffect(() => {
     initializeAuth();
+
+    // Listen for Supabase auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[Hybrid Auth] Auth state changed:', event, !!session);
+        
+        if (event === 'SIGNED_IN' && session) {
+          setAuthState({
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+            authMethod: 'supabase',
+          });
+        } else if (event === 'SIGNED_OUT') {
+          setAuthState({
+            accessToken: null,
+            refreshToken: null,
+            isAuthenticated: false,
+            isLoading: false,
+            authMethod: null,
+          });
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const initializeAuth = async () => {
@@ -80,6 +107,9 @@ export function useHybridAuth() {
           options: {
             redirectTo: supabaseConfig.redirectUrl,
             scopes: 'user-read-private user-read-email user-top-read user-read-recently-played user-read-playback-state user-read-currently-playing user-library-read playlist-read-private playlist-read-collaborative',
+            queryParams: {
+              state: 'supabase_auth'
+            }
           },
         });
 
