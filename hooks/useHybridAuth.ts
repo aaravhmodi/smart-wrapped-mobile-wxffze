@@ -98,34 +98,11 @@ export function useHybridAuth() {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
-      // Try Supabase OAuth first
-      try {
-        console.log('[Hybrid Auth] Attempting Supabase OAuth...');
-        
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: 'spotify',
-          options: {
-            redirectTo: supabaseConfig.redirectUrl,
-            scopes: 'user-read-private user-read-email user-top-read user-read-recently-played user-read-playback-state user-read-currently-playing user-library-read playlist-read-private playlist-read-collaborative',
-            queryParams: {
-              state: 'supabase_auth'
-            }
-          },
-        });
-
-        if (error) {
-          console.log('[Hybrid Auth] Supabase OAuth failed:', error.message);
-          throw error;
-        }
-
-        console.log('[Hybrid Auth] Supabase OAuth initiated successfully');
-        return; // Supabase will handle the redirect
-      } catch (supabaseError) {
-        console.log('[Hybrid Auth] Supabase failed, falling back to PHP auth');
-        
-        // Fallback to PHP auth
-        await phpAuth.login();
-      }
+      // For now, skip Supabase and use PHP auth directly
+      // TODO: Enable Supabase once OAuth is properly configured
+      console.log('[Hybrid Auth] Using PHP auth (Supabase OAuth not configured yet)');
+      await phpAuth.login();
+      
     } catch (error) {
       console.error('[Hybrid Auth] Login failed:', error);
       setAuthState(prev => ({ ...prev, isLoading: false }));
