@@ -1,0 +1,163 @@
+import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { supabase, supabaseConfig } from '@/config/supabase';
+import { useSpotifyAuth } from './useSpotifyAuth';
+import { storage } from '@/utils/storage';
+
+interface AuthState {
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  authMethod: 'supabase' | 'php' | null;
+}
+
+export function useHybridAuth() {
+  const [authState, setAuthState] = useState<AuthState>({
+    accessToken: null,
+    refreshToken: null,
+    isAuthenticated: false,
+    isLoading: true,
+    authMethod: null,
+  });
+
+  // Fallback to PHP auth
+  const phpAuth = useSpotifyAuth();
+
+  useEffect(() => {
+    initializeAuth();
+  }, []);
+
+  const initializeAuth = async () => {
+    try {
+      // Try Supabase first
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (session && !error) {
+        console.log('[Hybrid Auth] Supabase session found');
+        setAuthState({
+          accessToken: session.access_token,
+          refreshToken: session.refresh_token,
+          isAuthenticated: true,
+          isLoading: false,
+          authMethod: 'supabase',
+        });
+        return;
+      }
+
+      // Fallback to PHP auth
+      console.log('[Hybrid Auth] No Supabase session, trying PHP auth');
+      if (phpAuth.isAuthenticated && phpAuth.accessToken) {
+        setAuthState({
+          accessToken: phpAuth.accessToken,
+          refreshToken: phpAuth.refreshToken,
+          isAuthenticated: true,
+          isLoading: false,
+          authMethod: 'php',
+        });
+        return;
+      }
+
+      // No authentication found
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      console.error('[Hybrid Auth] Error initializing auth:', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const login = async () => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true }));
+
+      // Try Supabase OAuth first
+      try {
+        console.log('[Hybrid Auth] Attempting Supabase OAuth...');
+        
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'spotify',
+          options: {
+            redirectTo: supabaseConfig.redirectUrl,
+            scopes: 'user-read-private user-read-email user-top-read user-read-recently-played user-read-playback-state user-read-currently-playing user-library-read playlist-read-private playlist-read-collaborative',
+          },
+        });
+
+        if (error) {
+          console.log('[Hybrid Auth] Supabase OAuth failed:', error.message);
+          throw error;
+        }
+
+        console.log('[Hybrid Auth] Supabase OAuth initiated successfully');
+        return; // Supabase will handle the redirect
+      } catch (supabaseError) {
+        console.log('[Hybrid Auth] Supabase failed, falling back to PHP auth');
+        
+        // Fallback to PHP auth
+        await phpAuth.login();
+      }
+    } catch (error) {
+      console.error('[Hybrid Auth] Login failed:', error);
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }
+  };
+
+  const logout = async () => {
+    try {
+      if (authState.authMethod === 'supabase') {
+        await supabase.auth.signOut();
+      } else {
+        // Clear PHP auth tokens
+        await storage.removeItem('spotify_access_token');
+        await storage.removeItem('spotify_refresh_token');
+      }
+      
+      setAuthState({
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        authMethod: null,
+      });
+    } catch (error) {
+      console.error('[Hybrid Auth] Logout failed:', error);
+    }
+  };
+
+  const refreshAccessToken = async () => {
+    try {
+      if (authState.authMethod === 'supabase') {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (data.session && !error) {
+          setAuthState(prev => ({
+            ...prev,
+            accessToken: data.session.access_token,
+            refreshToken: data.session.refresh_token,
+          }));
+          return data.session.access_token;
+        }
+      } else {
+        // Use PHP refresh
+        return await phpAuth.refreshAccessToken();
+      }
+    } catch (error) {
+      console.error('[Hybrid Auth] Token refresh failed:', error);
+    }
+    return null;
+  };
+
+  const getAccessToken = async () => {
+    if (authState.accessToken) {
+      return authState.accessToken;
+    }
+    return await refreshAccessToken();
+  };
+
+  return {
+    ...authState,
+    login,
+    logout,
+    refreshAccessToken,
+    getAccessToken,
+  };
+}

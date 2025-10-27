@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/styles/commonStyles';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useHybridAuth } from '@/hooks/useHybridAuth';
 import { useListeningSession } from '@/hooks/useListeningSession';
 import { spotifyApi } from '@/services/spotifyApi';
 import { insightsEngine } from '@/services/insightsEngine';
@@ -23,7 +23,7 @@ import SessionControl from './SessionControl';
 const { width } = Dimensions.get('window');
 
 export default function WrappedDashboard() {
-  const { isAuthenticated, isLoading: authLoading, login, logout, accessToken, refreshToken, getAccessToken } = useSpotifyAuth();
+  const { isAuthenticated, isLoading: authLoading, login, logout, accessToken, refreshToken, getAccessToken } = useHybridAuth();
   const { session, getSessionStats, clearSession } = useListeningSession();
   
   const [loading, setLoading] = useState(false);
