@@ -120,13 +120,14 @@ export function useHybridAuth() {
     try {
       if (authState.authMethod === 'supabase') {
         const { data, error } = await supabase.auth.refreshSession();
-        if (data.session && !error) {
+        const session = data.session;
+        if (session && !error) {
           setAuthState(prev => ({
             ...prev,
-            accessToken: data.session.access_token,
-            refreshToken: data.session.refresh_token,
+            accessToken: session.access_token,
+            refreshToken: session.refresh_token,
           }));
-          return data.session.access_token;
+          return session.access_token;
         }
       } else {
         // Use PHP refresh
