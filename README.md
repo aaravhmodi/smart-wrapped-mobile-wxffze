@@ -11,13 +11,10 @@ A beautiful, cross-platform mobile app that provides **real-time Spotify insight
 
 ## 🎥 Demo
 
-<video width="100%" controls>
-  <source src="./spotify-wrapped-demo-v1.mp4" type="video/mp4" />
-  Your browser does not support inline video. You can download and watch the demo here:
-  <a href="./spotify-wrapped-demo-v1.mp4">Download/Watch the demo video</a>.
-</video>
 
-[Download/Watch the demo video](./spotify-wrapped-demo-v1.mp4)
+
+https://github.com/user-attachments/assets/025d1cfe-30ff-48ee-abb5-ca44b54f616a
+
 
 ---
 
