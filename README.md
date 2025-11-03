@@ -229,7 +229,6 @@ function MyComponent() {
 }
 ```
 
-📚 **[Read full authentication docs →](./AUTHENTICATION.md)**
 
 ---
 
